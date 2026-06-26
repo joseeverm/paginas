@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Fondo redondeado -->
+  <rect width="100" height="100" rx="20" fill="#1C1917"/>
+  <!-- Cuerpo de la pluma -->
+  <path d="M50,12 L72,54 L50,66 L28,54 Z" fill="#F5F5F4"/>
+  <!-- Punta metálica -->
+  <path d="M42,60 L50,88 L58,60 Z" fill="#A8A29E"/>
+  <!-- Hendidura central -->
+  <path d="M50,50 L50,88" stroke="#1C1917" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Reflejo -->
+  <path d="M38,22 L42,38" stroke="#D6D3D1" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+</svg>

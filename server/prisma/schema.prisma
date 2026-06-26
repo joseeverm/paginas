@@ -1,0 +1,258 @@
+// ─────────────────────────────────────────
+//  Páginas — Prisma Schema
+//  Base de datos: PostgreSQL
+// ─────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────
+
+enum Visibility {
+  private  // Solo el autor
+  public   // Visible para todos
+  excerpt  // Solo el fragmento (excerpt) es público
+}
+
+enum ReactionType {
+  me_ha_pasado
+  me_encanta
+  te_entiendo
+  fuerza_amigo
+  me_llego
+}
+
+enum NotificationType {
+  reaction
+  comment
+  follow
+}
+
+// ─────────────────────────────────────────
+//  USERS
+// ─────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  display_name  String?
+  email         String   @unique
+  password_hash String
+
+  bio           String?
+  avatar_url    String?
+  social_links  Json?    // { instagram: "", twitter: "", etc. }
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relaciones
+  journals      Journal[]
+  entries       Entry[]
+  comments      Comment[]
+  reactions     Reaction[]
+  donations     Donation[]
+
+  // Follows: este usuario sigue a otros
+  following              Follow[] @relation("follower")
+  // Follows: otros usuarios siguen a este
+  followers              Follow[] @relation("following")
+
+  notifications_received Notification[] @relation("notif_recipient")
+  notifications_sent     Notification[] @relation("notif_actor")
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+//  JOURNALS
+// ─────────────────────────────────────────
+
+model Journal {
+  id          String   @id @default(uuid())
+  user_id     String
+  title       String
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relaciones
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  entries     Entry[]
+
+  @@map("journals")
+}
+
+// ─────────────────────────────────────────
+//  ENTRIES
+// ─────────────────────────────────────────
+
+model Entry {
+  id           String     @id @default(uuid())
+  journal_id   String
+  user_id      String
+
+  title        String?
+  content      String     // HTML del editor (Tiptap)
+  excerpt      String?    // Fragmento público opcional
+
+  visibility   Visibility @default(private)
+
+  daily_prompt String?    // Pregunta del día usada al escribir esta entrada
+
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+
+  // Relaciones
+  journal      Journal    @relation(fields: [journal_id], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  photo         EntryPhoto?
+  comments      Comment[]
+  reactions     Reaction[]
+  notifications Notification[]
+
+  @@map("entries")
+}
+
+// ─────────────────────────────────────────
+//  ENTRY PHOTOS
+// ─────────────────────────────────────────
+
+model EntryPhoto {
+  id             String   @id @default(uuid())
+  entry_id       String   @unique  // Una sola foto por entrada
+  url            String
+  cloudinary_id  String   // Para borrar de Cloudinary al eliminar la entrada
+  created_at     DateTime @default(now())
+
+  // Relaciones
+  entry          Entry    @relation(fields: [entry_id], references: [id], onDelete: Cascade)
+
+  @@map("entry_photos")
+}
+
+// ─────────────────────────────────────────
+//  COMMENTS
+// ─────────────────────────────────────────
+
+model Comment {
+  id         String   @id @default(uuid())
+  entry_id   String
+  user_id    String
+
+  content    String
+  is_visible Boolean  @default(true) // false cuando la entrada se vuelve privada
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relaciones
+  entry      Entry    @relation(fields: [entry_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+// ─────────────────────────────────────────
+//  REACTIONS
+// ─────────────────────────────────────────
+
+model Reaction {
+  id         String       @id @default(uuid())
+  entry_id   String
+  user_id    String
+
+  type       ReactionType
+
+  created_at DateTime     @default(now())
+
+  // Relaciones
+  entry      Entry        @relation(fields: [entry_id], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Un usuario solo puede dejar una reacción por entrada
+  @@unique([entry_id, user_id])
+
+  @@map("reactions")
+}
+
+// ─────────────────────────────────────────
+//  FOLLOWS
+// ─────────────────────────────────────────
+
+model Follow {
+  id           String   @id @default(uuid())
+  follower_id  String   // El que sigue
+  following_id String   // El que es seguido
+
+  created_at   DateTime @default(now())
+
+  // Relaciones
+  follower     User     @relation("follower",  fields: [follower_id],  references: [id], onDelete: Cascade)
+  following    User     @relation("following", fields: [following_id], references: [id], onDelete: Cascade)
+
+  // No puedes seguir a alguien dos veces
+  @@unique([follower_id, following_id])
+
+  @@map("follows")
+}
+
+// ─────────────────────────────────────────
+//  DAILY PROMPTS
+// ─────────────────────────────────────────
+
+model DailyPrompt {
+  id          String   @id @default(uuid())
+  question    String
+  active_date DateTime @unique // Una pregunta por día
+
+  created_at  DateTime @default(now())
+
+  @@map("daily_prompts")
+}
+
+// ─────────────────────────────────────────
+//  NOTIFICATIONS
+// ─────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(uuid())
+  user_id    String           // destinatario
+  actor_id   String           // quien disparó la notificación
+  entry_id   String?          // null para notificaciones de follow
+  type       NotificationType
+  is_read    Boolean          @default(false)
+  created_at DateTime         @default(now())
+
+  user       User   @relation("notif_recipient", fields: [user_id],  references: [id], onDelete: Cascade)
+  actor      User   @relation("notif_actor",     fields: [actor_id], references: [id], onDelete: Cascade)
+  entry      Entry? @relation(fields: [entry_id], references: [id],  onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────
+//  DONATIONS
+// ─────────────────────────────────────────
+
+model Donation {
+  id           String   @id @default(uuid())
+  from_user_id String?  // null si es anónima
+  to_user_id   String?  // null si es donación a la plataforma
+  amount_cop   Int      // Monto en pesos colombianos
+  message      String?  // Mensaje opcional del donante
+  created_at   DateTime @default(now())
+
+  // Relaciones
+  from_user    User?    @relation(fields: [from_user_id], references: [id], onDelete: SetNull)
+
+  @@map("donations")
+}
