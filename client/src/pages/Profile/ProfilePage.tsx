@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../store/AuthContext'
 import { getProfile, updateProfile, toggleFollow } from '../../api/profile'
 import EntryCard from '../../components/EntryCard'
-import { LogOut, Edit2, Users, Heart, ExternalLink, Globe, Check, X, Camera } from 'lucide-react'
+import { LogOut, Edit2, Users, Heart, ExternalLink, Check, X, Camera } from 'lucide-react'
 import type { Entry } from '../../types'
 
 export default function ProfilePage() {
